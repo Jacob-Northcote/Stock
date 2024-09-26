@@ -1,0 +1,32 @@
+import requests
+import time
+
+ticker = input("Enter Stock Ticker:")
+stock_number_api_key = "cda61084299c44748bf44dc22884acea"
+
+def get_stock_price(ticker_symbol, api):
+    url = f"https://api.twelvedata.com/price?symbol={ticker_symbol}&apikey={api}"
+    response = requests.get(url).json()
+    price = response['price'][:-3]
+    return price
+
+def get_stock_quote(ticker_symbol, api):
+    url = f"https://api.twelvedata.com/quote?symbol={ticker_symbol}&apikey={api}"
+    response = requests.get(url).json()
+    return response
+
+try:
+    stock_price = get_stock_price(ticker, stock_number_api_key)
+    stock_quote = get_stock_quote(ticker, stock_number_api_key)['name']
+    high_price = get_stock_quote(ticker, stock_number_api_key)['high']
+    low_price = get_stock_quote(ticker, stock_number_api_key)['low']
+    open_price = get_stock_quote(ticker, stock_number_api_key)['open']
+
+    print(stock_quote)
+    print("Current Price:", str(stock_price))
+    print("High Price:", str(high_price)[:-3])
+    print("Low Price:", str(low_price)[:-3])
+    print("Open Price:", str(open_price)[:-3])
+
+except Exception as e:
+    print("Not valid ticker")
