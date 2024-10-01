@@ -1,0 +1,49 @@
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import requests
+import time
+#to run use streamlit run api.py
+# uploaded_file = st.file_uploader("choose csv file", type = "csv" file)
+# if uploaded_file is not None:
+#   st.write("file uploaded")
+# add timechart, streamlit, and news info, check bookmarks for more
+
+st.title("Stock Information")
+
+#txt imput
+userInput = st.text_input("Enter Stock Ticker:")
+
+if userInput:
+    ticker = userInput
+    stock_number_api_key = "cda61084299c44748bf44dc22884acea"
+
+    def get_stock_price(ticker_symbol, api):
+        url = f"https://api.twelvedata.com/price?symbol={ticker_symbol}&apikey={api}"
+        response = requests.get(url).json()
+        price = response['price'][:-3]
+        return price
+
+    def get_stock_quote(ticker_symbol, api):
+        url = f"https://api.twelvedata.com/quote?symbol={ticker_symbol}&apikey={api}"
+        response = requests.get(url).json()
+        return response
+
+    try:
+        stock_price = get_stock_price(ticker, stock_number_api_key)
+        stock_quote = get_stock_quote(ticker, stock_number_api_key)['name']
+        high_price = get_stock_quote(ticker, stock_number_api_key)['high']
+        low_price = get_stock_quote(ticker, stock_number_api_key)['low']
+        open_price = get_stock_quote(ticker, stock_number_api_key)['open']
+
+        st.write(stock_quote)
+        st.write("Current Price:", str(stock_price))
+        st.write("High Price:", str(high_price)[:-3])
+        st.write("Low Price:", str(low_price)[:-3])
+        st.write("Open Price:", str(open_price)[:-3])
+
+    except Exception as e:
+        st.write("Not valid ticker")
+
+
+
