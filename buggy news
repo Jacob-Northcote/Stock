@@ -1,0 +1,101 @@
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import requests
+import time
+import yfinance as yf
+
+# to run use streamlit run api.py
+# uploaded_file = st.file_uploader("choose csv file", type = "csv" file)
+# if uploaded_file is not None:
+#   st.write("file uploaded")
+# add timechart, streamlit, and news info, check bookmarks for more, compare stocks based on news and past % increase
+# news api tMLtQMDgKwRNvL33h9w0HBNAuB1S732okA1k0Yrt , https://api.marketaux.com/v1/news/all?symbols=TSLA,AMZN,MSFT&filter_entities=true&language=en&api_token=YOUR_API_TOKEN
+
+st.title("Live Stock Information")
+
+userInput = st.text_input("Enter Stock Ticker:")
+
+time_range = st.selectbox("Select Time Range:", ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "max"])
+
+if userInput:
+    ticker = userInput
+    stock_number_api_key = "cda61084299c44748bf44dc22884acea"
+    stock_news_api_key = "tMLtQMDgKwRNvL33h9w0HBNAuB1S732okA1k0Yrt"
+
+    def get_stock_news(ticker_symbol, api):
+        url = f"https://api.marketaux.com/v1/news/all?symbols={ticker_symbol}&filter_entities=true&language=en&api_token={api}"
+        response = requests.get(url).json()
+        return response.get('data', [])
+
+    def get_stock_price(ticker_symbol, api):
+        url = f"https://api.twelvedata.com/price?symbol={ticker_symbol}&apikey={api}"
+        response = requests.get(url).json()
+        if 'price' in response:
+            return response['price']
+        else:
+            raise ValueError(f"Error fetching price: {response.get('message', 'Unknown error')}")
+
+    def get_stock_quote(ticker_symbol, api):
+        url = f"https://api.twelvedata.com/quote?symbol={ticker_symbol}&apikey={api}"
+        response = requests.get(url).json()
+        if 'symbol' in response:
+            return response
+        else:
+            raise ValueError(f"Error fetching quote: {response.get('message', 'Unknown error')}")
+
+    def get_historical_data(ticker_symbol, period):
+        if period == "1d":
+            stock_data = yf.download(ticker_symbol, period=period,
+                                     interval="1m")
+        elif period == "5d":
+            stock_data = yf.download(ticker_symbol, period=period,
+                                     interval="1h")
+        else:
+            stock_data = yf.download(ticker_symbol, period=period,
+                                     interval="1d")
+        return stock_data
+
+    try:
+        # Fetch live stock data from the Twelve Data API
+        stock_price = get_stock_price(ticker, stock_number_api_key)
+        stock_quote = get_stock_quote(ticker, stock_number_api_key)
+        stock_news = get_stock_news(ticker, stock_news_api_key)
+
+        stock_name = stock_quote['name']
+        high_price = stock_quote['high']
+        low_price = stock_quote['low']
+        open_price = stock_quote['open']
+
+        st.write(f"**{stock_name} ({ticker})**")
+
+        st.write("## Historical Stock Data")
+        historical_data = get_historical_data(ticker, time_range)
+        st.write(historical_data.tail(10))
+
+        # Plot the historical closing prices using Matplotlib
+        st.write("## Stock Closing Price Over Time")
+        plt.figure(figsize=(10, 4))
+        plt.plot(historical_data.index, historical_data['Close'], label='Close Price')
+        plt.title(f'{stock_name} Closing Prices Over the {time_range}')
+        plt.xlabel('Date')
+        plt.ylabel('Close Price (USD)')
+        plt.xticks(rotation=45)
+        plt.legend()
+        st.pyplot(plt)
+
+        if stock_news:
+            st.write("## Recent News Highlights:")
+            for article in stock_news:
+                published_at = article.get('published_at', 'Unknown Date')
+                highlights = article.get('entities', [])
+
+                for entity in highlights:
+                    for highlight in entity.get('highlights', []):
+                        st.write(f"**Date:** {published_at} - **Highlight:** {highlight['highlight']}")
+                st.write("---")
+        else:
+            st.write("No news available for this ticker.")
+
+    except Exception as e:
+        st.write(f"Error: {str(e)}")
