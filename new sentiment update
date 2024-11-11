@@ -1,0 +1,111 @@
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import requests
+import time
+import yfinance as yf
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+nltk.download('vader_lexicon')
+
+# to run use streamlit run api.py
+# uploaded_file = st.file_uploader("choose csv file", type = "csv" file)
+# if uploaded_file is not None:
+#   st.write("file uploaded")
+# add timechart, streamlit, and news info, check bookmarks for more, compare stocks based on news and past % increase
+
+st.title("Live Stock Information")
+
+# Text input for stock ticker
+userInput = st.text_input("Enter Stock Ticker:")
+
+# Time range selection for historical data
+time_range = st.selectbox("Select Time Range:", ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "max"])
+
+# News API key and endpoint
+news_api_key = "aab1bb354e234593bd93158660f2bb50"
+news_url = "https://newsapi.org/v2/everything"
+
+if userInput:
+    ticker = userInput
+    stock_number_api_key = "cda61084299c44748bf44dc22884acea"
+
+    def get_stock_price(ticker_symbol, api):
+        url = f"https://api.twelvedata.com/price?symbol={ticker_symbol}&apikey={api}"
+        response = requests.get(url).json()
+        price = response['price'][:-3]
+        return price
+    def get_sentiment(text):
+        sid = SentimentIntensityAnalyzer()
+        scores = sid.polarity_scores(text)
+        return scores['compound']  # Return compound score for overall sentiment
+    def get_stock_quote(ticker_symbol, api):
+        url = f"https://api.twelvedata.com/quote?symbol={ticker_symbol}&apikey={api}"
+        response = requests.get(url).json()
+        return response
+
+    def get_historical_data(ticker_symbol, period):
+        if period == "1d":
+            stock_data = yf.download(ticker_symbol, period=period,
+                                     interval="1m")  # 1-minute interval for detailed intraday data
+        elif period == "5d":
+            stock_data = yf.download(ticker_symbol, period=period,
+                                     interval="1h")  # Default to daily data for other periods
+        else:
+            stock_data = yf.download(ticker_symbol, period=period,
+                                     interval="1d")
+        return stock_data
+
+    def get_news(ticker_symbol, api_key):
+        params = {
+            "q": ticker_symbol,
+            "from": "2024-10-11",
+            "sortBy": "publishedAt",
+            "apiKey": api_key
+        }
+        response = requests.get(news_url, params=params).json()
+        return response['articles']
+
+    try:
+        # Fetch live stock data from the Twelve Data API
+        stock_price = get_stock_price(ticker, stock_number_api_key)
+        stock_quote = get_stock_quote(ticker, stock_number_api_key)
+
+        stock_name = stock_quote['name']
+        high_price = stock_quote['high']
+        low_price = stock_quote['low']
+        open_price = stock_quote['open']
+
+        st.write(f"**{stock_name} ({ticker})**")
+
+        st.write("## Historical Stock Data")
+        historical_data = get_historical_data(ticker, time_range)
+        st.write(historical_data.tail(10))
+
+        # Plot the historical closing prices using Matplotlib
+        st.write("## Stock Closing Price Over Time")
+        plt.figure(figsize=(10, 4))
+        plt.plot(historical_data.index, historical_data['Close'], label='Close Price')
+        plt.title(f'{stock_name} Closing Prices Over the {time_range}')
+        plt.xlabel('Date')
+        plt.ylabel('Close Price (USD)')
+        plt.xticks(rotation=45)
+        plt.legend()
+        st.pyplot(plt)
+
+        # Fetch and display news articles related to the stock ticker
+        st.write("## Latest News")
+
+        news_articles = get_news(ticker, news_api_key)
+        for article in news_articles:
+            st.write(f"**Title**: {article['title']}")
+            st.write(f"**URL**: [{article['url']}]({article['url']})")
+            st.write(f"**Published At**: {article['publishedAt']}")
+            sentiment = get_sentiment(article['content'])
+            st.write(f"**Sentiment Score**: {sentiment}")
+            st.write(f"**Content**: {article['content']}")
+            st.write("---")  # Separator for each article
+
+    except Exception as e:
+        st.write("Not a valid ticker")
